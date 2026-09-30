@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WireMath</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#0d1117; color:#e6edf3; }
+  .wrap { max-width:720px; margin:0 auto; padding:36px 20px 60px; }
+  h1 { font-size:1.9rem; margin:0; }
+  .tag { color:#9da7b3; margin:6px 0 18px; }
+  .presets { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:22px; }
+  .presets button { background:#21262d; color:#c9d1d9; border:1px solid #30363d; border-radius:999px; padding:8px 16px; font-size:0.9rem; cursor:pointer; }
+  .presets button:hover { border-color:#3fb950; color:#3fb950; }
+  section { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:20px; margin-bottom:18px; }
+  h2 { font-size:1rem; margin:0 0 14px; color:#e6edf3; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px; }
+  label { display:block; font-size:0.78rem; color:#9da7b3; margin-bottom:4px; }
+  input, select { background:#0d1117; border:1px solid #30363d; color:#e6edf3; border-radius:6px; padding:8px 10px; font-size:0.95rem; width:120px; }
+  input[type=checkbox] { width:auto; }
+  .outs { display:flex; flex-wrap:wrap; gap:12px; }
+  .out { flex:1 1 150px; background:#0d1117; border:1px solid #21262d; border-radius:8px; padding:12px 14px; }
+  .out .val { font-size:1.15rem; font-weight:700; color:#58a6ff; }
+  .out .lab { font-size:0.75rem; color:#9da7b3; margin-top:4px; }
+  .verdict { border-radius:8px; padding:10px 14px; margin-bottom:8px; font-size:0.9rem; }
+  .v-good { background:#0d2817; border:1px solid #238636; color:#7ee2a0; }
+  .v-warn { background:#2d2306; border:1px solid #9e6a03; color:#f0c659; }
+  .v-bad { background:#3d1214; border:1px solid #da3633; color:#ff9492; }
+  table { width:100%; border-collapse:collapse; font-size:0.92rem; }
+  th { text-align:left; color:#9da7b3; font-weight:600; font-size:0.78rem; padding:6px 8px; }
+  td { padding:8px; border-top:1px solid #21262d; }
+  tr.cur td { background:#1f6feb22; }
+  .lvl { font-weight:700; }
+  .l-good { color:#3fb950; }
+  .l-warn { color:#f0c659; }
+  .l-bad { color:#ff9492; }
+  .foot { color:#6e7681; font-size:0.8rem; margin-top:10px; }
+  a { color:#58a6ff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>&#128268; WireMath</h1>
+  <p class="tag">Wire gauge math - voltage drop is why the tool bogs at the far end of the cord, and the difference leaves as heat.</p>
+  <div class="presets">
+    <button data-p="saw">Saw on a 100 ft cord</button>
+    <button data-p="ev">EV charger run</button>
+    <button data-p="lights">200 ft string lights</button>
+    <button data-p="welder">Welder outlet</button>
+  </div>
+
+  <section>
+    <h2>1. The load</h2>
+    <div class="row">
+      <div><label>Load (amps)</label><input id="amps" type="number" step="0.5" min="0" value="15"></div>
+      <div><label>or load (watts)</label><input id="watts" type="number" step="50" min="0" placeholder="overridden by amps"></div>
+      <div><label>Voltage</label>
+        <select id="volts"><option value="120">120 V</option><option value="240">240 V</option></select></div>
+      <div><label>Continuous 3+ hrs</label><input id="cont" type="checkbox"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. The run</h2>
+    <div class="row">
+      <div><label>One-way length (ft)</label><input id="len" type="number" step="5" min="1" value="100"></div>
+      <div><label>Wire gauge</label>
+        <select id="awg"><option value="16">16 AWG</option><option value="14">14 AWG</option><option value="12">12 AWG</option><option value="10">10 AWG</option><option value="8">8 AWG</option><option value="6">6 AWG</option></select></div>
+    </div>
+    <div class="outs">
+      <div class="out"><div class="val" id="o-drop"></div><div class="lab">Voltage drop</div></div>
+      <div class="out"><div class="val" id="o-pct"></div><div class="lab">Drop percent</div></div>
+      <div class="out"><div class="val" id="o-end"></div><div class="lab">Volts at the far end</div></div>
+      <div class="out"><div class="val" id="o-heat"></div><div class="lab">Heat in the run</div></div>
+      <div class="out"><div class="val" id="o-maxlen"></div><div class="lab">Max length for 3%</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Every gauge, same load</h2>
+    <table>
+      <thead><tr><th>Gauge</th><th>Drop</th><th>Percent</th><th>Max ft for 3%</th><th>Verdict</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. Honest check</h2>
+    <div id="verdicts"></div>
+  </section>
+
+  <p class="foot">Drop = 2 x amps x length x ohm/1000ft (copper, 75C). NEC fine print: 3% per branch circuit, 5% feeder + branch. Continuous loads derate 125%. <a href="https://github.com/iLanis-agent/wiremath">Source</a></p>
+</div>
+<script src="engine.js"></script>
+<script>
+var F = ['amps','watts','volts','len','awg','cont'];
+var PRESETS = {
+  saw:    { amps:15, watts:'', volts:'120', len:100, awg:'16', cont:false },
+  ev:     { amps:32, watts:'', volts:'240', len:40,  awg:'8',  cont:true  },
+  lights: { amps:2,  watts:'', volts:'120', len:200, awg:'16', cont:false },
+  welder: { amps:30, watts:'', volts:'240', len:60,  awg:'10', cont:false }
+};
+function el(id) { return document.getElementById(id); }
+function update() {
+  var r = WireMath.compute({
+    amps: el('amps').value === '' ? null : +el('amps').value,
+    watts: el('watts').value === '' ? null : +el('watts').value,
+    volts: +el('volts').value,
+    lengthFt: +el('len').value,
+    awg: el('awg').value,
+    continuous: el('cont').checked
+  });
+  if (r.error) { el('o-drop').textContent = r.error; return; }
+  el('o-drop').textContent = r.vDrop + ' V';
+  el('o-pct').textContent = r.pct + '%';
+  el('o-end').textContent = r.atEndVolts + ' V';
+  el('o-heat').textContent = r.heatWatts + ' W';
+  el('o-maxlen').textContent = r.maxLenFt + ' ft';
+  el('tbody').innerHTML = r.table.map(function (row) {
+    var word = row.level === 'good' ? 'fine' : row.level === 'warn' ? 'marginal' : 'starved';
+    return '<tr class="' + (row.awg === r.awg ? 'cur' : '') + '"><td>' + row.awg + ' AWG</td><td>' +
+      row.vDrop + ' V</td><td>' + row.pct + '%</td><td>' + row.maxLenFt + ' ft</td><td class="lvl l-' + row.level + '">' + word + '</td></tr>';
+  }).join('');
+  el('verdicts').innerHTML = r.checks.map(function (c) {
+    return '<div class="verdict v-' + c.level + '">' + c.text + '</div>';
+  }).join('');
+}
+F.forEach(function (id) {
+  el(id).addEventListener('input', update);
+  el(id).addEventListener('change', update);
+});
+document.querySelectorAll('.presets button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var p = PRESETS[b.getAttribute('data-p')];
+    el('amps').value = p.amps; el('watts').value = p.watts; el('volts').value = p.volts;
+    el('len').value = p.len; el('awg').value = p.awg; el('cont').checked = p.cont;
+    update();
+  });
+});
+update();
+</script>
+</body>
+</html>
